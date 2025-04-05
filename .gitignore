@@ -24,6 +24,7 @@ var/
 venv/
 ENV/
 
-# 輸出檔案
+*.pyc
+*.pyo
 *.json
-
+.env
