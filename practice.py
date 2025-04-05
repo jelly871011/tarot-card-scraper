@@ -3,19 +3,22 @@ import os
 import pymysql
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse
 import time
-from dotenv import load_dotenv
 
-load_dotenv()
+# from urllib.parse import urlparse
+# from dotenv import load_dotenv
 
-jawsdb_url = os.getenv("JAWSDB_URL")
-url = urlparse(jawsdb_url)
+# load_dotenv()
 
-DB_HOST = url.hostname
-DB_USER = url.username
-DB_PASSWORD = url.password
-DB_NAME = url.path[1:]
+# heroku database URL
+# jawsdb_url = os.getenv("JAWSDB_URL")
+# url = urlparse(jawsdb_url)
+
+# railway database variable
+DB_HOST = os.getenv('MYSQLHOST')
+DB_USER = os.getenv('MYSQLUSER')
+DB_PASSWORD = os.getenv('MYSQLPASSWORD')
+DB_NAME = os.getenv('MYSQL_DATABASE')
 
 connection = pymysql.connect(
     host=DB_HOST,
@@ -67,7 +70,6 @@ def create_database_and_table():
             """)
             print("表格 'books' 已確認存在")
 
-            connection.close()
             return True
 
     except pymysql.MySQLError as e:
@@ -163,13 +165,11 @@ def save_to_database(books):
         print("沒有書籍資料可保存")
         return 0
 
-    getConnection = create_database_connection()
-    if not getConnection:
+    if connection is None:
         return 0
 
     try:
-        cursor = getConnection.cursor()
-
+        cursor = connection.cursor()
         # 準備 SQL 插入語句
         insert_query = """
             INSERT INTO books (title, image_url, price, rating, detail_url)
@@ -192,7 +192,7 @@ def save_to_database(books):
         print(f"保存到資料庫時出錯: {e}")
         return 0
     finally:
-        if getConnection.open:
+        if connection.open:
             cursor.close()
             connection.close()
             print("資料庫連接已關閉")
@@ -249,6 +249,9 @@ def main():
         print("\n步驟3: 保存提取的數據到資料庫")
         print("-" * 30)
         print(f"共爬取到 {len(all_books)} 本書籍的內容")
+
+        # 將書籍資料保存到資料庫
+        save_to_database(all_books)
 
         # 輸出摘要內容
         print("\n爬取結果摘要:")
