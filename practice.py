@@ -3,21 +3,31 @@ import os
 import pymysql
 import requests
 from bs4 import BeautifulSoup
+from urllib.parse import urlparse
 import time
 from dotenv import load_dotenv
 
 load_dotenv()
 
+jawsdb_url = os.getenv("JAWSDB_URL")
+url = urlparse(jawsdb_url)
+
+DB_HOST = url.hostname
+DB_USER = url.username
+DB_PASSWORD = url.password
+DB_NAME = url.path[1:]
+
+connection = pymysql.connect(
+    host=DB_HOST,
+    user=DB_USER,
+    password=DB_PASSWORD,
+    database=DB_NAME
+)
+
+
 def create_database_connection():
     """建立資料庫連接"""
     try:
-        connection = pymysql.connect(
-            host=os.getenv("DB_HOST"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
-            database=os.getenv("DB_NAME")
-        )
-        
         if connection.open:
             print("成功連接到 MySQL 資料庫")
             return connection
@@ -29,26 +39,18 @@ def create_database_connection():
 def create_database_and_table():
     """創建資料庫和表格（如果不存在）"""
     try:
-        # 首先連接到 MySQL 伺服器（不指定資料庫）
-        connection = pymysql.connect(
-            host=os.getenv("DB_HOST"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
-            database=os.getenv("DB_NAME")
-        )
-        
         if connection.open:
             cursor = connection.cursor()
 
             print("成功連接到 MySQL 伺服器")
-            
+
             # 創建資料庫（如果不存在）
             # cursor.execute("CREATE DATABASE IF NOT EXISTS book_scraper")
             # print("資料庫 'book_scraper' 已確認存在")
-            
+
             # 切換到該資料庫
-            cursor.execute(f"USE {os.getenv('DB_NAME')}")
-            
+            cursor.execute(f"USE {DB_NAME}")
+
             print("成功切換到資料庫")
 
             # 創建書籍表格
@@ -64,10 +66,10 @@ def create_database_and_table():
                 )
             """)
             print("表格 'books' 已確認存在")
-            
+
             connection.close()
             return True
-            
+
     except pymysql.MySQLError as e:
         print(f"設置資料庫時出錯: {e}")
         return False
@@ -160,40 +162,41 @@ def save_to_database(books):
     if not books:
         print("沒有書籍資料可保存")
         return 0
-        
-    connection = create_database_connection()
-    if not connection:
+
+    getConnection = create_database_connection()
+    if not getConnection:
         return 0
-        
+
     try:
-        cursor = connection.cursor()
-        
+        cursor = getConnection.cursor()
+
         # 準備 SQL 插入語句
         insert_query = """
             INSERT INTO books (title, image_url, price, rating, detail_url)
             VALUES (%s, %s, %s, %s, %s)
         """
-        
+
         # 批量插入資料
-        book_tuples = [(book["title"], book["image_url"], book["price"], 
+        book_tuples = [(book["title"], book["image_url"], book["price"],
                         book["rating"], book["detail_url"]) for book in books]
-        
+
         cursor.executemany(insert_query, book_tuples)
         connection.commit()
-        
+
         inserted_count = cursor.rowcount
         print(f"成功將 {inserted_count} 本書籍保存到資料庫")
-        
+
         return inserted_count
-        
+
     except pymysql.MySQLError as e:
         print(f"保存到資料庫時出錯: {e}")
         return 0
     finally:
-        if connection.open:
+        if getConnection.open:
             cursor.close()
             connection.close()
             print("資料庫連接已關閉")
+
 
 def main():
     """主函數: 協調整個爬蟲流程"""
@@ -246,7 +249,7 @@ def main():
         print("\n步驟3: 保存提取的數據到資料庫")
         print("-" * 30)
         print(f"共爬取到 {len(all_books)} 本書籍的內容")
-        
+
         # 輸出摘要內容
         print("\n爬取結果摘要:")
         print("-" * 30)
